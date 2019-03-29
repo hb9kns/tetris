@@ -17,6 +17,9 @@
 #define NULL ((void*)0)
 #endif
 
+#define DEBUG
+#define MUTE
+
 /* grid dimension : 10x18 */
 /**
  * \def WIDTH
@@ -262,7 +265,11 @@ struct {
 		.void_col =   0,
 		.loop =       1,
 		.freeze =     0,
+#ifdef MUTE
+		.music =      1,
+#else
 		.music =      0,
+#endif
 		.dsp =        -1,
 		.bgm =        -1,
 		.sfx =        -1,
@@ -457,7 +464,7 @@ void play_sfx(enum sfx fx) {
  * @param x Abscissa in [0,98]
  * @param y Ordinate in [0,98]
  */
-inline void put_cur(int x, int y) {
+void put_cur(int x, int y) {
 	x++;
 	y++;
 	WRITE(0x1b);
@@ -1411,13 +1418,13 @@ int check_keys(int key) {
 		in_pause();
 	} else if (!game.pause) {
 		switch (key) {
-		case 'j':
+		case 'h':
 			/* left */
 			current.next_x--;
 			try_move();
 			break;
 
-		case 'k':
+		case 'j':
 			/* down */
 			if (!game.freeze)
 				moved_down = down();
@@ -1429,7 +1436,7 @@ int check_keys(int key) {
 			break;
 
 		case 'f':
-		case 'i':
+		case 'k':
 			/* A */
 			current.next_ori++;
 			if (!VALID_IMG(GET_IMG(scale, current.piece,
@@ -1439,7 +1446,6 @@ int check_keys(int key) {
 			break;
 
 		case 'd':
-		case 'u':
 			/* B */
 			current.next_ori--;
 			if (current.next_ori < 0)
@@ -1454,6 +1460,8 @@ int check_keys(int key) {
 			/* select */
 			break;
 
+		case 'q':
+		case 0x03: /* Ctrl-C */
 		case 0x1b: /* ESC */
 			/* quit */
 			if (read(0, &buf, 1) == 1)
@@ -1465,7 +1473,7 @@ int check_keys(int key) {
 			break;
 
 		default:
-#if 0			/* debug */
+#ifdef DEBUG
 			if (key)
 				print_number(25, 25, key);
 #endif
@@ -1497,7 +1505,7 @@ void display_result(char msg) {
 			break;
 
 		case END_LOST:
-			print_msg("LOOSER !!!", 4, 1);
+			print_msg("LOSER !!!!", 4, 1);
 			break;
 
 		case END_PEER_LEFT:
@@ -1531,6 +1539,9 @@ void *memcpy(void *dest, const void *src, size_t n) {
 	return dest;
 }
 int config_music() {
+#ifdef MUTE
+	return 0;
+#else
 	int ret = -1;
 	int rate = 44100;
 	int channels = 2;
@@ -1577,6 +1588,7 @@ int config_music() {
 	}
 	
 	return 1;
+#endif
 }
 
 /**
@@ -1584,6 +1596,9 @@ int config_music() {
  * card
  */
 void update_music() {
+#ifdef MUTE
+	return;
+#else
 	int ret = -1;
 	int ret_bgm = -1;
 	int ret_sfx = -1;
@@ -1634,6 +1649,7 @@ void update_music() {
 		memcpy(game.snd_buf, buf_bgm, (size_t)ret_bgm);
 		game.chunk_len = (size_t)ret_bgm;
 	}
+#endif
 }
 
 /**
