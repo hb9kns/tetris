@@ -42,3 +42,9 @@ For exemple, with aoss, in the debian package alsa-oss, simply type
 - 1 player survival mode : `./tetris`
 - 2 player, on the server, with a handicap of level 4, high 3 : `./tetris 2 4 3`
 - 2 player, on the client : `./tetris 2 <ip-address-of-server>:`
+
+---
+
+License: GPL v.3
+
+Authors: Nicolas Carrier, Yargo Bonetti
