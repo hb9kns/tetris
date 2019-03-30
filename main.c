@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdio.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <fcntl.h>
@@ -18,7 +19,6 @@
 #endif
 
 #define DEBUG
-#define MUTE
 
 /* grid dimension : 10x18 */
 /**
@@ -265,11 +265,7 @@ struct {
 		.void_col =   0,
 		.loop =       1,
 		.freeze =     0,
-#ifdef MUTE
-		.music =      1,
-#else
-		.music =      0,
-#endif
+		.music =      -1,
 		.dsp =        -1,
 		.bgm =        -1,
 		.sfx =        -1,
@@ -450,7 +446,7 @@ static struct {
 };
 
 /**
- * Sets an sfx wating for playing, resetting any non fully played previous sfx
+ * Sets an sfx waiting for playing, resetting any non fully played previous sfx
  */
 void play_sfx(enum sfx fx) {
 	if (-1 != game.sfx)
@@ -1049,37 +1045,41 @@ void add_crumbles() {
 }
 
 /**
- * Prints the content of a file to standard output
- * @param file Path of the file to dump
- */
-void dump_file(const char *file) {
-	int fd = -1;
-	char buf[10];
-	ssize_t bytes_read;
-
-	fd = open(file, O_RDONLY, 0);
-	if (-1 == fd) {
-		WRITES("Can't find \"");
-		WRITES(file);
-		WRITES("\" file\n");
-	}
-	else
-		while (0 < (bytes_read = read(fd, buf, 10)))
-			write(1, buf, (size_t)bytes_read);
-}
-
-/**
  * Prints a little help about command line invocation
  */
 void usage() {
-	dump_file("usage");
+	printf("Usage :\n");
+	printf("    tetris a [<level> [<high>]]\n");
+	printf("        Classic \"survival\" mode\n");
+	printf("    tetris b [<level> [<high>]]\n");
+	printf("        25 line to complete, with a handicap\n");
+	printf("    tetris 2 :[<port>] [<level> [<high>]]\n");
+	printf("        Launches the server for a 2 player mode listening on <port>\n");
+	printf("    tetris 2 <ip>:[<port>] [<level> [<high>]]\n");
+	printf("        Connects to a given server for a 2 player game\n");
+	printf("    tetris h\n");
+	printf("        Prints the keys used\n");
+	printf("\n");
+	printf("  <level> affects the speed of piece dropping and must be in [0,9]\n");
+	printf("  <high> must be in [0,5] - non-zero values add random blocks at the bottom\n");
+	printf("  Only the first digit of <level> and <high> are read!\n");
+	printf("\n");
+	printf("  Default values: level 0, high 0, port 37280\n");
 }
 
 /**
  * Prints the keys used in the game
  */
 void help() {
-	dump_file("keys");
+	printf("Keys :\n");
+	printf("	q/Q/ESC		Quit\n");
+	printf("	Return/p	Pause the game\n");
+	printf("	d		Turn clockwise\n");
+	printf("	f/k/A		Turn counter-clockwise\n");
+	printf("	h/D		Move left\n");
+	printf("	j/B		Move down\n");
+	printf("	l/C		Move right\n");
+	printf("\n");
 }
 
 /**
@@ -1142,7 +1142,7 @@ int set_up_server() {
 	ret = setsockopt(net.sfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 	if (-1 == ret) {
 		WRITES("error : setsockopt\n");
-		return 1;
+		return -1;
 	}
 	sin.sin_addr.s_addr = htonl(INADDR_ANY);
 	sin.sin_family = AF_INET;
@@ -1355,7 +1355,7 @@ struct termios old_tios;
 
 /**
  * Configures input/and output
- * @return 1 in case of error, 0 otherwise
+ * @return -1 in case of error, 0 otherwise
  */
 int config_io(void) {
 	int fd_flags;
@@ -1418,24 +1418,29 @@ int check_keys(int key) {
 		in_pause();
 	} else if (!game.pause) {
 		switch (key) {
+
+		case 'D':
 		case 'h':
 			/* left */
 			current.next_x--;
 			try_move();
 			break;
 
+		case 'B':
 		case 'j':
 			/* down */
 			if (!game.freeze)
 				moved_down = down();
 			break;
 
+		case 'C':
 		case 'l':
 			current.next_x++;
 			try_move();
 			break;
 
 		case 'f':
+		case 'A':
 		case 'k':
 			/* A */
 			current.next_ori++;
@@ -1460,6 +1465,12 @@ int check_keys(int key) {
 			/* select */
 			break;
 
+		case 'm':
+			/* mute/music */
+			game.music = game.music ? 0 : -1;
+			break;
+
+		case 'Q':
 		case 'q':
 		case 0x03: /* Ctrl-C */
 		case 0x1b: /* ESC */
@@ -1539,9 +1550,7 @@ void *memcpy(void *dest, const void *src, size_t n) {
 	return dest;
 }
 int config_music() {
-#ifdef MUTE
-	return 0;
-#else
+	if(!game.music) return 0;
 	int ret = -1;
 	int rate = 44100;
 	int channels = 2;
@@ -1587,8 +1596,7 @@ int config_music() {
 		}
 	}
 	
-	return 1;
-#endif
+	return -1;
 }
 
 /**
@@ -1596,9 +1604,6 @@ int config_music() {
  * card
  */
 void update_music() {
-#ifdef MUTE
-	return;
-#else
 	int ret = -1;
 	int ret_bgm = -1;
 	int ret_sfx = -1;
@@ -1649,7 +1654,6 @@ void update_music() {
 		memcpy(game.snd_buf, buf_bgm, (size_t)ret_bgm);
 		game.chunk_len = (size_t)ret_bgm;
 	}
-#endif
 }
 
 /**
@@ -1815,7 +1819,7 @@ int main(int argc, char *argv[]) {
 				read_msg(&net.pending_lines, &game.loop, &msg);
 
 		}
-		/* flush acculated keypresses while suspended */
+		/* flush accumulated keypresses while suspended */
 		if (1 == game.suspended)
 			while (read(0, &key, 1) != -1);
 
@@ -1836,6 +1840,7 @@ int main(int argc, char *argv[]) {
 
 	restore_io();
 
+	printf("score\t%d\n",game.score);
 	return 0;
 out:
 	return 1;
