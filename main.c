@@ -449,6 +449,8 @@ static struct {
  * Sets an sfx waiting for playing, resetting any non fully played previous sfx
  */
 void play_sfx(enum sfx fx) {
+	if (!game.music) return;
+
 	if (-1 != game.sfx)
 		lseek(game.sfx, 0, SEEK_SET);
 
@@ -1651,7 +1653,7 @@ void update_music() {
 		}
 
 		/* play the result */
-		memcpy(game.snd_buf, buf_bgm, (size_t)ret_bgm);
+		if (game.music) memcpy(game.snd_buf, buf_bgm, (size_t)ret_bgm);
 		game.chunk_len = (size_t)ret_bgm;
 	}
 }
